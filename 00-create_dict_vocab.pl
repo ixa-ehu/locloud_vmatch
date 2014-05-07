@@ -8,6 +8,8 @@ use XML::LibXML;
 
 binmode STDOUT, ":utf8";
 
+# usage: 00-create_dict_vocab.pl [-l (en|es ) ] > dict.txt
+
 my %opts;
 
 getopts('l:', \%opts);
