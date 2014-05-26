@@ -6,6 +6,7 @@ use LWP;
 use HTTP::Cookies;
 use Getopt::Std;
 use XML::LibXML;
+use Encode;
 
 binmode STDOUT, ":utf8";
 
@@ -179,5 +180,5 @@ UK Archival Thesaurus (UKAT),http://test113.ait.co.at/tematres/ukat/index.php
 UNESCO thesaurus,http://test113.ait.co.at/tematres/unesco/index.php
 dm:Genres,http://test113.ait.co.at/tematres/vocab/index.php
 .
-  return $str;
+  return decode("utf8", $str);
 }
