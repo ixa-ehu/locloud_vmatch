@@ -19,33 +19,50 @@ usage: $exec -h [-l (en|es ) ] [-v vocab_file ] [-b base_url] > dict.txt
              -l lang (en or es)
              -v vocab_file: CSV with "vocab_name, url" pair in each line
              -b base_url url of the VM default: http://test113.ait.co.at/tematres
+             -s save SKOS files
 .
   die $usg_str;
 }
+
+# call this URL to get a list of supported vocabularies
+my $VOCAB_LIST_URL = "http://test113.ait.co.at/tematres/locloud-vocabularies/";
+
 my %opts;
 
-getopts('hu:v:l:', \%opts);
+getopts('shu:v:l:', \%opts);
 
 &usage() if $opts{'h'};
 
+my $opt_s = $opts{'s'};
 my $opt_lang = $opts{'l'};
 $opt_lang = "en" unless defined $opt_lang;
 
 my $D = {};
-my $V = &default_vocabularies($opts{'v'});
+my $V = &vocab_list($opts{'v'});
 
 foreach my $vname (keys %{ $V } ) {
   dict_vocab($D, $vname, $V->{$vname});
 }
 
-while (my ($hw, $h) = each %{ $D }) {
-  my @out = ($hw);
-  while (my ($vocab, $a) = each %{ $h } ) {
-    push @out, join(",", keys %{ $a } ).",$vocab";
-  }
-  print join("\t", @out)."\n";
-}
+# foreach my $fname (@ARGV) {
+#   my $tree = XML::LibXML->new->parse_file($fname);
+#   my $vocab_name = basename($fname);
+#   dict_populate_tree($D, $vocab_name, $tree);
+# }
 
+&print_dict($D);
+
+sub print_dict {
+
+  my $D = shift;
+  while (my ($hw, $h) = each %{ $D }) {
+    my @out = ($hw);
+    while (my ($vocab, $a) = each %{ $h } ) {
+      push @out, join(",", keys %{ $a } ).",$vocab";
+    }
+    print join("\t", @out)."\n";
+  }
+}
 
 sub dict_vocab {
 
@@ -57,45 +74,44 @@ sub dict_vocab {
     warn "$vocab_name: empty vocabulary at $vocab_url\n";
     return;
   }
-
   my $tree = XML::LibXML->new->parse_string($xmlstring);
 
-  #my $tree = XML::LibXML->new->parse_file($skos_doc);
+  &dict_populate_tree($D, $vocab_name, $tree);
+}
+
+sub dict_populate_tree {
+
+  my ($D, $vocab_name, $tree) = @_;
+
+  if (defined $opt_s) {
+    open (my $fh, ">$vocab_name.skos") or die;
+    binmode $fh;
+    print $fh $tree->toString(2);
+  }
 
   my $rdf_elem = $tree->getDocumentElement;
 
-  # my $vocab_name = undef;
-  # foreach my $skosConceptScheme_elem ($rdf_elem->getElementsByTagName("skos:ConceptScheme")) {
-  #   my ($title_elem) = $skosConceptScheme_elem->getElementsByTagName("dc:title");
-  #   next unless defined $title_elem;
-  #   die "Many vocabularies!\n" if defined $vocab_name;
-  #   $vocab_name = $title_elem->textContent;
-  # }
-
-  # unless (defined $vocab_name) {
-  #   warn "No vocabulary name!\n";
-  # }
-
   foreach my $skosConcept_elem ($rdf_elem->getElementsByTagName("skos:Concept")) {
     my $about = $skosConcept_elem->getAttribute("rdf:about");
-    foreach my $prefLabel ($skosConcept_elem->getElementsByTagName("skos:prefLabel")) {
-      # SKOS 5.4 "A resource has no more than one value of skos:prefLabel per language tag."
-      my $lang = $prefLabel->getAttribute("xml:lang");
-      next unless $lang eq $opt_lang;
-      my $hw = lc($prefLabel->textContent);
-      $hw =~ s/ +/_/go;
-      $D->{$hw}->{$vocab_name}->{$about} = 1;
-    }
-
+    &parse_labels($skosConcept_elem, $vocab_name, $about, $D);
     foreach my $xmatch_elem ($skosConcept_elem->getElementsByTagName("skos:exactMatch")) {
-      foreach my $prefLabel ($xmatch_elem->getElementsByTagName("skos:prefLabel")) {
-	my $lang = $prefLabel->getAttribute("xml:lang");
-	next unless $lang eq $opt_lang;
-	my $hw = lc($prefLabel->textContent);
-	$hw =~ s/ +/_/go;
-	$D->{$hw}->{$vocab_name}->{$about} = 1;
-      }
+      my $match_about = $xmatch_elem->getAttribute("rdf:about");
+      next unless $match_about;
+      &parse_labels($xmatch_elem, $vocab_name, $match_about, $D);
     }
+  }
+}
+
+sub parse_labels {
+  my ($concept_elem, $vocab_name, $about, $D) = @_;
+
+  foreach my $label_elem ($concept_elem->getElementsByTagName("*")) {
+    next unless $label_elem->nodeName =~ /Label/;
+    # SKOS 5.4 "A resource has no more than one value of skos:prefLabel per language tag."
+    my $lang = $label_elem->getAttribute("xml:lang");
+    my $hw = lc($label_elem->textContent);
+    $hw =~ s/ +/_/go;
+    $D->{$hw}->{$vocab_name}->{$about} = 1;
   }
 }
 
@@ -139,7 +155,7 @@ sub retrieve_skos_vocab {
   # 			  'boton' => 'save'
   # 			} );
 
-sub default_vocabularies {
+sub vocab_list {
 
   my ($fname) = @_;
 
@@ -153,8 +169,8 @@ sub default_vocabularies {
       push @A, $_;
     }
   } else {
-    @A = split(/\n/, &table_str());
-  }
+    @A = &table_str();
+ }
   foreach my $l (@A) {
     my ($name, $str) = split(/\,/, $l);
     #http://test113.ait.co.at/tematres/adl/index.php => http://test113.ait.co.at/tematres/adl
@@ -164,7 +180,70 @@ sub default_vocabularies {
   return $V;
 }
 
+
 sub table_str {
+
+  my $browser = LWP::UserAgent->new(agent => "bbbbbbbb");
+
+  my $response = $browser->get( $VOCAB_LIST_URL );
+  if (not $response->is_success) {
+    warn "[W] Error getting $VOCAB_LIST_URL\n".$response->status_line;
+    return split(/\n/, &table_str_fixed());
+  }
+  my @A;
+  # parse output
+  # open(my $fhkk, ">kkk");
+  # binmode $fhkk,':raw';
+  # print $fhkk $response->content;
+  # die;
+  my $content = decode("iso-8859-1", $response->content);
+  foreach my $line (split(/\n/, $content)) {
+    $line =~ s/\r$//;
+    # $line =~ s/^\"//;
+    # $line =~ s/"$//;
+    next unless $line;
+    my ($name, $url) = parse_vocab_line($line);
+    if (not defined $name or not defined $url) {
+      warn "Bad line: $line\n";
+      next;
+    }
+    $name =~ s/^\s+//;
+    $name =~ s/\s+$//;
+    $url =~  s/^\s+//;
+    $url =~  s/\s+$//;
+    push @A, "$name,$url";
+  }
+  push @A, 'dm:Genres,http://test113.ait.co.at/tematres/vocab/index.php';
+  return @A;
+}
+
+
+sub parse_vocab_line {
+
+  my $line = shift;
+
+  return map { s/^\"//; s/\"$//; $_ } split(/\t/, $line);
+}
+
+sub parse_vocab_v0 {
+
+  my $line = shift;
+  my @vname;
+  my $url = undef;
+
+  foreach my $w (split(/\s+/, $line)) {
+    if ($w =~ /^http/) {
+      $url = $w;
+      last;
+    }
+    push @vname, $w;
+  }
+  my $vocab = undef;
+  $vocab = join(" ", @vname) if @vname;
+  return ($vocab, $url);
+}
+
+sub table_str_fixed {
 
   my $str= <<'.';
 Alexandria Digital Library Feature Type Thesaurus,http://test113.ait.co.at/tematres/adl/index.php
