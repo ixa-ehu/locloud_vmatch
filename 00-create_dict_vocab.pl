@@ -38,17 +38,20 @@ my $opt_lang = $opts{'l'};
 $opt_lang = "en" unless defined $opt_lang;
 
 my $D = {};
-my $V = &vocab_list($opts{'v'});
 
-foreach my $vname (keys %{ $V } ) {
-  dict_vocab($D, $vname, $V->{$vname});
+if (@ARGV) {
+  # a skos file has been selected. Use it (only)
+  foreach my $fname (@ARGV) {
+    my $tree = XML::LibXML->new->parse_file($fname);
+    my $vocab_name = basename($fname);
+    dict_populate_tree($D, $vocab_name, $tree);
+  }
+} else {
+  my $V = &vocab_list($opts{'v'});
+  foreach my $vname (keys %{ $V } ) {
+    dict_vocab($D, $vname, $V->{$vname});
+  }
 }
-
-# foreach my $fname (@ARGV) {
-#   my $tree = XML::LibXML->new->parse_file($fname);
-#   my $vocab_name = basename($fname);
-#   dict_populate_tree($D, $vocab_name, $tree);
-# }
 
 &print_dict($D);
 
@@ -57,8 +60,10 @@ sub print_dict {
   my $D = shift;
   while (my ($hw, $h) = each %{ $D }) {
     my @out = ($hw);
-    while (my ($vocab, $a) = each %{ $h } ) {
-      push @out, join(",", keys %{ $a } ).",$vocab";
+    while (my ($vocab, $lh) = each %{ $h } ) {
+      while(my ($lang, $a) = each %{ $lh } ) {
+	push @out, join(",", keys %{ $a } ).",$vocab";
+      }
     }
     print join("\t", @out)."\n";
   }
@@ -111,7 +116,7 @@ sub parse_labels {
     my $lang = $label_elem->getAttribute("xml:lang");
     my $hw = lc($label_elem->textContent);
     $hw =~ s/ +/_/go;
-    $D->{$hw}->{$vocab_name}->{$about} = 1;
+    $D->{$hw}->{$vocab_name}->{$lang}->{$about} = 1;
   }
 }
 
@@ -170,7 +175,7 @@ sub vocab_list {
     }
   } else {
     @A = &table_str();
- }
+  }
   foreach my $l (@A) {
     my ($name, $str) = split(/\,/, $l);
     #http://test113.ait.co.at/tematres/adl/index.php => http://test113.ait.co.at/tematres/adl
