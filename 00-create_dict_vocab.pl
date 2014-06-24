@@ -43,7 +43,7 @@ if (@ARGV) {
   # a skos file has been selected. Use it (only)
   foreach my $fname (@ARGV) {
     my $tree = XML::LibXML->new->parse_file($fname);
-    my $vocab_name = basename($fname);
+    my $vocab_name = basename(decode("UTF-8", $fname), ".skos");
     dict_populate_tree($D, $vocab_name, $tree);
   }
 } else {
@@ -62,7 +62,8 @@ sub print_dict {
     my @out = ($hw);
     while (my ($vocab, $lh) = each %{ $h } ) {
       while(my ($lang, $a) = each %{ $lh } ) {
-	push @out, join(",", keys %{ $a } ).",$vocab";
+	next unless keys %{ $a };
+	push @out, "$lang".'@@'.join('@@', keys %{ $a } ).'@@'."$vocab";
       }
     }
     print join("\t", @out)."\n";
