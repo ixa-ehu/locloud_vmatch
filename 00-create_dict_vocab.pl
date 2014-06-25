@@ -16,7 +16,7 @@ sub usage {
   my $usg_str = <<".";
 usage: $exec -h [-l (en|es ) ] [-v vocab_file ] [-b base_url] > dict.txt
              -h help
-             -l lang (en or es)
+             -n be silent (supress warnings and error messages)
              -v vocab_file: CSV with "vocab_name, url" pair in each line
              -b base_url url of the VM default: http://test113.ait.co.at/tematres
              -s save SKOS files
@@ -29,13 +29,13 @@ my $VOCAB_LIST_URL = "http://test113.ait.co.at/tematres/locloud-vocabularies/";
 
 my %opts;
 
-getopts('shu:v:l:', \%opts);
+getopts('nshu:v:', \%opts);
+
+my $opt_n = $opts{'n'};
 
 &usage() if $opts{'h'};
 
 my $opt_s = $opts{'s'};
-my $opt_lang = $opts{'l'};
-$opt_lang = "en" unless defined $opt_lang;
 
 my $D = {};
 
@@ -77,7 +77,7 @@ sub dict_vocab {
   my $skos_doc = "vocab.skos.xml";
   my $xmlstring = &retrieve_skos_vocab($vocab_url);
   if (not defined $xmlstring or $xmlstring eq "") {
-    warn "$vocab_name: empty vocabulary at $vocab_url\n";
+    warn "$vocab_name: empty vocabulary at $vocab_url\n" unless $opt_n;
     return;
   }
   my $tree = XML::LibXML->new->parse_string($xmlstring);
@@ -115,7 +115,9 @@ sub parse_labels {
     next unless $label_elem->nodeName =~ /Label/;
     # SKOS 5.4 "A resource has no more than one value of skos:prefLabel per language tag."
     my $lang = $label_elem->getAttribute("xml:lang");
+    next unless $lang;
     my $hw = lc($label_elem->textContent);
+    next unless $hw;
     $hw =~ s/ +/_/go;
     $D->{$hw}->{$vocab_name}->{$lang}->{$about} = 1;
   }
@@ -175,7 +177,7 @@ sub vocab_list {
       push @A, $_;
     }
   } else {
-    @A = &table_str();
+    @A = &retrieve_vocab_list();
   }
   foreach my $l (@A) {
     my ($name, $str) = split(/\,/, $l);
@@ -187,14 +189,14 @@ sub vocab_list {
 }
 
 
-sub table_str {
+sub retrieve_vocab_list {
 
   my $browser = LWP::UserAgent->new(agent => "bbbbbbbb");
 
   my $response = $browser->get( $VOCAB_LIST_URL );
   if (not $response->is_success) {
-    warn "[W] Error getting $VOCAB_LIST_URL\n".$response->status_line;
-    return split(/\n/, &table_str_fixed());
+    warn "[W] Error getting $VOCAB_LIST_URL\n".$response->status_line unless $opt_n;
+    die;
   }
   my @A;
   # parse output
@@ -210,7 +212,7 @@ sub table_str {
     next unless $line;
     my ($name, $url) = parse_vocab_line($line);
     if (not defined $name or not defined $url) {
-      warn "Bad line: $line\n";
+      warn "Bad line: $line\n" unless $opt_n;
       next;
     }
     $name =~ s/^\s+//;
