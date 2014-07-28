@@ -55,6 +55,9 @@ if (@ARGV) {
 
 &print_dict($D);
 
+# format
+# headword TAB lang@@concept1@@concept2@@...@@conceptN@@vocabulary_name TAB ...
+
 sub print_dict {
 
   my $D = shift;
@@ -200,11 +203,14 @@ sub retrieve_vocab_list {
   }
   my @A;
   # parse output
-  # open(my $fhkk, ">kkk");
+  open(my $fhkk, ">kkk");
   # binmode $fhkk,':raw';
   # print $fhkk $response->content;
+  # binmode $fhkk,':utf8';
+  # print $fhkk decode("utf8", $response->content);
   # die;
-  my $content = decode("iso-8859-1", $response->content);
+  #my $content = decode("iso-8859-1", $response->content);
+  my $content = decode("utf8", $response->content);
   foreach my $line (split(/\n/, $content)) {
     $line =~ s/\r$//;
     # $line =~ s/^\"//;
