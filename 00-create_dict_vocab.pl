@@ -203,7 +203,7 @@ sub retrieve_vocab_list {
   }
   my @A;
   # parse output
-  open(my $fhkk, ">kkk");
+  # open(my $fhkk, ">kkk");
   # binmode $fhkk,':raw';
   # print $fhkk $response->content;
   # binmode $fhkk,':utf8';
