@@ -14,11 +14,11 @@ sub usage {
 
   my $exec = basename($0);
   my $usg_str = <<".";
-usage: $exec -h [-l (en|es ) ] [-v vocab_file ] [-b base_url] > dict.txt
+usage: $exec [-h] [-v vocab_file ] [-V voxab_file ] [-n] [-s] > dict.txt
              -h help
              -n be silent (supress warnings and error messages)
-             -v vocab_file: CSV with "vocab_name, url" pair in each line
-             -b base_url url of the VM default: http://test113.ait.co.at/tematres
+             -v load vocab list from CSV with "vocab_name, url" pair in each line
+             -V save vocab list into vocab_file
              -s save SKOS files
 .
   die $usg_str;
@@ -29,7 +29,7 @@ my $VOCAB_LIST_URL = "http://test113.ait.co.at/tematres/locloud-vocabularies/";
 
 my %opts;
 
-getopts('nshu:v:', \%opts);
+getopts('nshV:v:', \%opts);
 
 my $opt_n = $opts{'n'};
 
@@ -202,7 +202,14 @@ sub retrieve_vocab_list {
     die;
   }
   my @A;
-  # parse output
+
+  # Save list if told so
+
+  if ($opts{'V'} and open(my $fhkk, ">".$opts{'V'})) {
+	  binmode $fhkk,':raw';
+	  print $fhkk $response->content;
+  }
+
   # open(my $fhkk, ">kkk");
   # binmode $fhkk,':raw';
   # print $fhkk $response->content;
@@ -211,6 +218,7 @@ sub retrieve_vocab_list {
   # die;
   #my $content = decode("iso-8859-1", $response->content);
   my $content = decode("utf8", $response->content);
+  die "Can not retrieve vocabulary list\n" unless $content;
   foreach my $line (split(/\n/, $content)) {
     $line =~ s/\r$//;
     # $line =~ s/^\"//;
