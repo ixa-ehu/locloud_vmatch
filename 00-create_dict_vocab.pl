@@ -199,7 +199,7 @@ sub retrieve_vocab_list {
   my $response = $browser->get( $VOCAB_LIST_URL );
   if (not $response->is_success) {
     warn "[W] Error getting $VOCAB_LIST_URL\n".$response->status_line unless $opt_n;
-    die;
+    exit 1;
   }
   my @A;
 
@@ -218,7 +218,10 @@ sub retrieve_vocab_list {
   # die;
   #my $content = decode("iso-8859-1", $response->content);
   my $content = decode("utf8", $response->content);
-  die "Can not retrieve vocabulary list\n" unless $content;
+  unless ($content) {
+    warn "[E] Can not retrieve vocabulary list\n" unless $opt_n;
+    exit 1;
+  }
   foreach my $line (split(/\n/, $content)) {
     $line =~ s/\r$//;
     # $line =~ s/^\"//;
