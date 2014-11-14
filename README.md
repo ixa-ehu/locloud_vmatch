@@ -60,7 +60,7 @@ The specifics for the service are described in the Deliverable D3.3
 The API of the service is available through the support centre of the
 LoCloud project at this address:
 
-    http://support.locloud.eu/Metadata%20enrichment%20API%20technical%20documentation
+[http://support.locloud.eu/Metadata%20enrichment%20API%20technical%20documentation]
 
 ## Contact information
 
