@@ -14,9 +14,19 @@ my %dictionary;
 my $fh;
 open($fh, "<:encoding(UTF-8)", "$dictionaryfile");
 while(<$fh>){
+	# headword TAB lang@@concept1@@concept2@@...@@conceptN@@vocabulary_name TAB ...
     chomp;
-    my($concept,@matches) = split(/\t/);
-    $dictionary{$concept} = [@matches];
+    my($hw,@matches) = split(/\t/);
+	my $dicthw = $dictionary{$hw};
+	if(!defined $dicthw) {
+		$dicthw = {};
+		$dictionary{$hw} = $dicthw;
+	}
+	foreach my $match (@matches) {
+		my ($lang, @concepts) = split(/@@/, $match);
+		my $match_dict = pop @concepts;
+		$dicthw->{$lang}->{$match_dict} = [@concepts];
+	}
 }
 
 
@@ -30,16 +40,19 @@ foreach my $idx ($vocab->match_idx(\@tokens)) {
     my ($left, $right) = @{ $idx };
     next if ($left == $right);       # malformed entity, ignore
     my $c = join("_", @tokens[$left .. $right-1]);
-    if(exists $dictionary{$c}){
-	foreach my $match (@{$dictionary{$c}}){
-	    my($match_lang,$match_URI,$match_dict) = split('@@',$match);
-	    if($match_lang eq $lang){
-		$result .= $match_URI . "@@" . $match_dict . ":::";
-	    }
+	my $dict_c = $dictionary{$c};
+	next unless defined $dict_c;
+	my $dict_c_lang = $dict_c->{$lang};
+	next unless defined $dict_c_lang;
+	my $str = "";
+	foreach my $match_dict (keys %{ $dict_c_lang } ) {
+		my $sep = '@@'.$match_dict.":::";
+		$str = join($sep, @{ $dict_c_lang->{$match_dict} });
+		$str.= $sep;
 	}
-    }
+	$result .= $str;
 }
 
-print $result; # matchURI_1@@dict_1:::matchURI_2@@dict_2::: ... matchURI_N@@dict_N
+print $result; # matchURI_1@@dict_1:::matchURI_2@@dict_2::: ... matchURI_N@@dict_N:::
 
 
