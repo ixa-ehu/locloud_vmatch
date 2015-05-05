@@ -1,5 +1,6 @@
 <?php
 
+sleep(1);
 $log_date = date("Y-m-d H:i:s");
 
 $dictionary = "dict.txt";
