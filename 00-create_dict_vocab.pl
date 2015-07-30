@@ -101,7 +101,8 @@ sub dict_populate_tree {
   my $rdf_elem = $tree->getDocumentElement;
 
   foreach my $skosConcept_elem ($rdf_elem->getElementsByTagName("skos:Concept")) {
-    my $about = $skosConcept_elem->getAttribute("rdf:about");
+    my $about = $skosConcept_elem->getAttribute("locloud");
+	$about = $skosConcept_elem->getAttribute("rdf:about") unless defined $about;
     &parse_labels($skosConcept_elem, $vocab_name, $about, $D);
     foreach my $xmatch_elem ($skosConcept_elem->getElementsByTagName("skos:exactMatch")) {
       my $match_about = $xmatch_elem->getAttribute("rdf:about");
