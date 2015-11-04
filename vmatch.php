@@ -55,18 +55,34 @@ $fh = fopen($logFile, 'a') or die ('Cannot open file');
 fwrite($fh, $logString);
 fclose($fh);
 
-
-
-
-
 function match($text,$dictionary,$lang){
+
+  # $text = "dc:subject@@@testua@@@dc:title@@@testua"
 
   $new_text = stripslashes($text);
 
-  $result_match = shell_exec("perl ./do_match.pl $dictionary $lang \"$new_text\"");
-# restult_match = matchURI_1@@dict_1:::matchURI_2@@dict_2::: ... matchURI_N@@dict_N
+  $do_match_result = shell_exec("perl ./do_match.pl $dictionary $lang \"$new_text\"");
+
+  # do_match_result = field@@@number@@@match_text_itzultzen_duena@@@@field@@@number@@@match_text_itzultzen_duena@@@@
+  # eta match_text_itzultzen_duena: matchURI_1@@dict_1:::matchURI_2@@dict_2::: ... matchURI_N@@dict_N:::
 
   $new_data = array();
+  $new_data['Resources'] = array();
+
+  $fnmatches = explode('@@@@', $do_match_result);
+  array_pop($fnmatches); //there is nothing after the last "@@@@"
+  foreach ($fnmatches as &$fnmatch) {
+      list($field, $field_n, $match_text_result) = explode("@@@", $fnmatch);
+      foreach (match_field($match_text_result, $field, $field_n) as &$resource) {
+          array_push($new_data['Resources'], $resource);
+      }
+  }
+  deliver_response(200,"Success",$new_data);
+}
+
+function match_field($result_match, $field, $field_n) {
+
+  $resources = array();
 
   if($result_match != ""){
 
@@ -78,20 +94,17 @@ function match($text,$dictionary,$lang){
       // uri@@dict   example: http://ait113/tematres/mon_type/?tema=4911@@Monument Type Thesaurus
       list($uri, $dict) = explode("@@", $uris);
       $concept = array(
-		       'URI' => $uri,
-		       'vocab' => $dict
-		       );
+          'field' => $field,
+          'field_n' => $field_n,
+          'URI' => $uri,
+          'vocab' => $dict
+      );
       array_push($concepts, $concept);
     }
-
-
-    $new_data['Resources'] = $concepts;
+    array_push($resources, $concepts);
   }
-  deliver_response(200,"Success",$new_data);
-
+  return $resources;
 }
-
-
 
 function deliver_response($status,$status_message,$data){
 
