@@ -63,8 +63,9 @@ sub match_text {
 			my $sep = '@@'.$match_dict.":::";
 			$str = join($sep, @{ $dict_c_lang->{$match_dict} });
 			$str.= $sep;
+		
+			$result .= $str;
 		}
-		$result .= $str;
 	}
 
 	return $result; # field@@@number@@@matchURI_1@@dict_1:::matchURI_2@@dict_2::: ... matchURI_N@@dict_N:::
