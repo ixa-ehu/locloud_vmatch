@@ -8,13 +8,14 @@ use Match;
 binmode(STDIN, ":utf8");
 binmode(STDOUT, ":utf8");
 
-my ($dictionaryfile, $lang, $input_text) = @ARGV;
+my ($dictionaryfile, $lang) = @ARGV;
+my $input_text = <STDIN>;
 
 my $dictionary = &load_dictionary($dictionaryfile);
 my $vocab = new Match($dictionaryfile);
 
 # sarrera:
-# dc:subject@@@testua@@@dc:title@@@testua
+# dc:subject@@@testua@@@dc:title@@@testua@@@
 #
 # output_string
 #

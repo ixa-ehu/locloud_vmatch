@@ -34,6 +34,20 @@ else if(!empty($_POST['text'])){
   match($_POST['text'], $dictionary, $lang);
 
 }
+else if(!empty($_POST['record'])){
+  $log_mode = "POST";
+  $log_parameters = "record: " . $_POST['record'];
+  if(!empty($_POST['lang'])){
+    $lang = $_POST['lang'];
+    $log_parameters .= "  // lang: " . $lang;
+  }
+  else{
+    $lang = $default_lang;
+  }
+  
+  $text = record_to_text($_POST['record']);
+  match($text, $dictionary, $lang);
+}
 else{
   deliver_response(400,"Invalid Request: missing 'text' parameter",NULL);
   $log_parameters = "missing 'text' parameter";
@@ -57,32 +71,31 @@ fclose($fh);
 
 function match($text,$dictionary,$lang){
 
-  # $text = "dc:subject@@@testua@@@dc:title@@@testua"
+  # $text = "dc:subject@@@testua@@@dc:title@@@testua@@@"
 
   $new_text = stripslashes($text);
 
-  $do_match_result = shell_exec("perl ./do_match.pl $dictionary $lang \"$new_text\"");
+  $do_match_result = shell_exec("echo \"$new_text\" | perl ./do_match.pl $dictionary $lang");
 
   # do_match_result = field@@@number@@@match_text_itzultzen_duena@@@@field@@@number@@@match_text_itzultzen_duena@@@@
   # eta match_text_itzultzen_duena: matchURI_1@@dict_1:::matchURI_2@@dict_2::: ... matchURI_N@@dict_N:::
 
   $new_data = array();
-  $new_data['Resources'] = array();
+  $resources = array();
 
   $fnmatches = explode('@@@@', $do_match_result);
   array_pop($fnmatches); //there is nothing after the last "@@@@"
   foreach ($fnmatches as &$fnmatch) {
       list($field, $field_n, $match_text_result) = explode("@@@", $fnmatch);
-      foreach (match_field($match_text_result, $field, $field_n) as &$resource) {
-          array_push($new_data['Resources'], $resource);
+      foreach (match_field($match_text_result, $field, $field_n) as $resource) {
+          array_push($resources, $resource);
       }
   }
+  $new_data['Resources'] = $resources;
   deliver_response(200,"Success",$new_data);
 }
 
 function match_field($result_match, $field, $field_n) {
-
-  $resources = array();
 
   if($result_match != ""){
 
@@ -101,10 +114,24 @@ function match_field($result_match, $field, $field_n) {
       );
       array_push($concepts, $concept);
     }
-    array_push($resources, $concepts);
   }
-  return $resources;
+  return $concepts;
 }
+
+
+function record_to_text($record){
+# record = [{"field" : "dc:title","text":"Major Oak" },{"field":"dc:subject","text":"painting"},{"field":"dc:subject","text":"writing"}]'
+
+  $text = "";
+  $json = json_decode($record);
+
+  foreach($json as $fields){
+    $text = $text . $fields->field . "@@@" . $fields->text . "@@@";
+  }
+
+  return $text; # $text = "dc:title@@@Major Oak@@@dc:subject@@@painting@@@dc:subject@@@writing@@@"
+}
+
 
 function deliver_response($status,$status_message,$data){
 
